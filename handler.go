@@ -39,3 +39,7 @@ func (h *Handler) SetHandler(w http.ResponseWriter, r *http.Request) {
 	h.store.Set(req.Key, req.Value)
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *Handler) PingHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
