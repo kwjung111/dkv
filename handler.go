@@ -32,6 +32,7 @@ func (h *Handler) SetHandler(w http.ResponseWriter, r *http.Request) {
 		Key   string `json:"key"`
 		Value string `json:"value"`
 	}
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -42,4 +43,8 @@ func (h *Handler) SetHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PingHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) ClusterStateHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("state"))
 }
