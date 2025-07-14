@@ -10,16 +10,16 @@ func main() {
 
 	// for clustering
 	selfID := "node-A"
-	cluster := InitCluster()
+	cluster := InitCluster(selfID)
 
 	//register nodes
-	cluster.SetSelf(selfID)
 	cluster.RegisterNode("node-A", "localhost:8080")
 	cluster.RegisterNode("node-B", "localhost:8082")
 	cluster.RegisterNode("node-C", "localhost:8084")
+	//리더 선출
 
 	store := NewStore()
-	handler := NewHandler(store)
+	handler := NewHandler(store, cluster)
 
 	http.HandleFunc("/get", handler.GetHandler)
 	http.HandleFunc("/set", handler.SetHandler)

@@ -6,11 +6,12 @@ import (
 )
 
 type Handler struct {
-	store *Store
+	store   *Store
+	cluster *Cluster
 }
 
-func NewHandler(s *Store) *Handler {
-	return &Handler{store: s}
+func NewHandler(s *Store, c *Cluster) *Handler {
+	return &Handler{store: s, cluster: c}
 }
 
 func (h *Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
@@ -46,5 +47,11 @@ func (h *Handler) PingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ClusterStateHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("state"))
+	data, err := h.cluster.GetState()
+	if err != nil {
+		http.Error(w, "failed to get cluster state", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,27 +9,73 @@ import (
 	"time"
 )
 
+type Status int
+
+const (
+	Unkown Status = iota
+	Initializing
+	Running
+)
+
+func (s Status) String() string {
+	switch s {
+	case Unkown:
+		return "Unkown"
+	case Initializing:
+		return "Initializing"
+	case Running:
+		return "Running"
+	default:
+		return "Unknown Status"
+	}
+}
+
 type Cluster struct {
 	State *ClusterState
 }
 
 type ClusterState struct {
-	mu     sync.Mutex
-	selfID string
-	Nodes  map[string]*NodeState
+	mu       sync.Mutex
+	selfID   string
+	LeaderID string
+	Status   Status
+	Nodes    map[string]*NodeState
 }
 
-func InitCluster() *Cluster {
-	state := ClusterState{Nodes: make(map[string]*NodeState)}
+func InitCluster(id string) *Cluster {
+	state := ClusterState{Status: Initializing, LeaderID: "None", selfID: id, Nodes: make(map[string]*NodeState)}
 	return &Cluster{State: &state}
 }
 
-func (c *Cluster) SetSelf(id string) {
-	c.State.selfID = id
+func (c *Cluster) SetLeader(id string) {
+	c.State.mu.Lock()
+	defer c.State.mu.Unlock()
+	c.State.LeaderID = id
+}
+
+func (c *Cluster) GetLeader() string {
+	return c.State.LeaderID
+}
+
+func (c *Cluster) GetState() ([]byte, error) {
+	state := struct {
+		SelfID   string            `json:"self_id"`
+		LeaderID string            `json:"leader_id"`
+		Status   Status            `json:"status"`
+		Nodes    map[string]string `json:"nodes"`
+	}{
+		SelfID:   c.State.selfID,
+		LeaderID: c.State.LeaderID,
+		Status:   c.State.Status,
+		Nodes:    make(map[string]string),
+	}
+	return json.Marshal(state)
 }
 
 func (c *Cluster) heartbeat(node *NodeState) {
-	resp, err := http.Get(fmt.Sprintf("http://%s/ping", node.Address))
+	timeoutSec := 2
+	client := http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
+	resp, err := client.Get(fmt.Sprintf("http://%s/ping", node.Address))
 	c.State.mu.Lock()
 	defer c.State.mu.Unlock()
 
@@ -53,16 +100,24 @@ func (c *Cluster) RegisterNode(id string, address string) {
 }
 
 func (c *Cluster) StartHeartBeat(interval time.Duration) {
-	for {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		var wg sync.WaitGroup
 		c.State.mu.Lock()
 		for id, node := range c.State.Nodes {
 			if id == c.State.selfID {
 				continue
 			}
-			go c.heartbeat(node)
+			wg.Add(1)
+			go func(node *NodeState) {
+				defer wg.Done()
+				c.heartbeat(node)
+			}(node)
 		}
 		c.State.mu.Unlock()
-		time.Sleep(interval)
+		wg.Wait()
 	}
 }
 
