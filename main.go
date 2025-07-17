@@ -4,9 +4,22 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/kwjung111/dkv/raft"
 )
 
 func main() {
+
+	node := raft.NewNode("node-A", "localhost:8080", []string{
+		"localhost:8081",
+		"localhost:8082",
+	})
+
+	http.HandleFunc("/raft/request-vote", node.HandleRequestVote)
+	http.HandleFunc("/raft/append-entries", node.HandleAppendEntries)
+}
+
+func main2() {
 
 	// for clustering
 	selfID := "node-A"
